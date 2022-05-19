@@ -3,6 +3,7 @@
 *.o
 *.so
 .idea
+insightface
 
 # Packages #
 ############
