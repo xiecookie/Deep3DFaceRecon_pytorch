@@ -13,7 +13,7 @@
                     focal: 1015.0                        
                   gpu_ids: 0                             
                img_folder: ./datasets/examples           	[default: examples]
-                init_path: checkpoints/init_model/resnet50-0676ba61.pth
+                init_path: checkpoint/init_model/resnet50-0676ba61.pth
                   isTrain: False                         	[default: None]
                     model: facerecon                     
                      name: deep3d                        	[default: face_recon]
