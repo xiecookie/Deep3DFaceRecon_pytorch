@@ -12,6 +12,7 @@ from scipy.io import loadmat
 from torch import nn
 
 from pytorch3d.structures import Meshes
+
 """
 from pytorch3d.renderer import (
     look_at_view_transform,
@@ -25,6 +26,7 @@ from pytorch3d.renderer import (
 )
 """
 
+
 # def ndc_projection(x=0.1, n=1.0, f=50.0):
 #     return np.array([[n/x,    0,            0,              0],
 #                      [  0, n/-x,            0,              0],
@@ -33,10 +35,10 @@ from pytorch3d.renderer import (
 
 class MeshRenderer(nn.Module):
     def __init__(self,
-                rasterize_fov,
-                znear=0.1,
-                zfar=10, 
-                rasterize_size=224):
+                 rasterize_fov,
+                 znear=0.1,
+                 zfar=10,
+                 rasterize_size=224):
         super(MeshRenderer, self).__init__()
 
         # x = np.tan(np.deg2rad(rasterize_fov * 0.5)) * znear
@@ -73,7 +75,7 @@ class MeshRenderer(nn.Module):
             self.rasterizer = MeshRasterizer()
             print("create rasterizer on device cuda:%d"%device.index)
         """
-        
+
         # ranges = None
         # if isinstance(tri, List) or len(tri.shape) == 3:
         #     vum = vertex_ndc.shape[1]
@@ -107,11 +109,11 @@ class MeshRenderer(nn.Module):
         tri = tri.unsqueeze(0)
         tri = tri.expand(batch_size, tri.size()[1], tri.size()[2])
 
-        mesh = Meshes(vertex.contiguous()[...,:3], tri)
+        mesh = Meshes(vertex.contiguous()[..., :3], tri)
 
-        #fragments = rasterizer(mesh, cameras = cameras, raster_settings = raster_settings)
-        #print(vertex.get_device())
-        #if rasterizer.get_device() != mesh.get_device():
+        # fragments = rasterizer(mesh, cameras = cameras, raster_settings = raster_settings)
+        # print(vertex.get_device())
+        # if rasterizer.get_device() != mesh.get_device():
         #    rasterizer.to(mesh.get_device())
 
         fragments = rasterizer(mesh)
@@ -122,15 +124,14 @@ class MeshRenderer(nn.Module):
         depth = depth.permute(0, 3, 1, 2)
         mask = (rast_out > 0).float().unsqueeze(1)
         depth = mask * depth
-        
 
         image = None
         if feat is not None:
-            attributes = feat.reshape(-1,3)[mesh.faces_packed()]
+            attributes = feat.reshape(-1, 3)[mesh.faces_packed()]
             image = pytorch3d.ops.interpolate_face_attributes(fragments.pix_to_face,
-                                                      fragments.bary_coords,
-                                                      attributes)
+                                                              fragments.bary_coords,
+                                                              attributes)
             image = image.squeeze(-2).permute(0, 3, 1, 2)
             image = mask * image
-        
+
         return mask, depth, image

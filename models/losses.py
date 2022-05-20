@@ -11,35 +11,6 @@ def resize_n_crop(image, M, dsize=112):
     return warp_affine(image, M, dsize=(dsize, dsize))
 
 
-### perceptual level loss
-class PerceptualLoss(nn.Module):
-    def __init__(self, recog_net, input_size=112):
-        super(PerceptualLoss, self).__init__()
-        self.recog_net = recog_net
-        self.preprocess = lambda x: 2 * x - 1
-        self.input_size = input_size
-
-    def forward(imageA, imageB, M):
-        """
-        1 - cosine distance
-        Parameters:
-            imageA       --torch.tensor (B, 3, H, W), range (0, 1) , RGB order
-            imageB       --same as imageA
-        """
-
-        imageA = self.preprocess(resize_n_crop(imageA, M, self.input_size))
-        imageB = self.preprocess(resize_n_crop(imageB, M, self.input_size))
-
-        # freeze bn
-        self.recog_net.eval()
-
-        id_featureA = F.normalize(self.recog_net(imageA), dim=-1, p=2)
-        id_featureB = F.normalize(self.recog_net(imageB), dim=-1, p=2)
-        cosine_d = torch.sum(id_featureA * id_featureB, dim=-1)
-        # assert torch.sum((cosine_d > 1).float()) == 0
-        return torch.sum(1 - cosine_d) / cosine_d.shape[0]
-
-
 def perceptual_loss(id_featureA, id_featureB):
     cosine_d = torch.sum(id_featureA * id_featureB, dim=-1)
     # assert torch.sum((cosine_d > 1).float()) == 0

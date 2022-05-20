@@ -7,6 +7,7 @@ from scipy.io import loadmat, savemat
 from array import array
 import os.path as osp
 
+
 # load expression basis
 def LoadExpBasis(bfm_folder='BFM'):
     n_vertex = 53215
@@ -15,8 +16,8 @@ def LoadExpBasis(bfm_folder='BFM'):
     exp_dim.fromfile(Expbin, 1)
     expMU = array('f')
     expPC = array('f')
-    expMU.fromfile(Expbin, 3*n_vertex)
-    expPC.fromfile(Expbin, 3*exp_dim[0]*n_vertex)
+    expMU.fromfile(Expbin, 3 * n_vertex)
+    expPC.fromfile(Expbin, 3 * exp_dim[0] * n_vertex)
     Expbin.close()
 
     expPC = np.array(expPC)
@@ -43,15 +44,15 @@ def transferBFM09(bfm_folder='BFM'):
 
     # transfer BFM09 to our face model
 
-    idBase = shapePC*np.reshape(shapeEV, [-1, 199])
-    idBase = idBase/1e5  # unify the scale to decimeter
+    idBase = shapePC * np.reshape(shapeEV, [-1, 199])
+    idBase = idBase / 1e5  # unify the scale to decimeter
     idBase = idBase[:, :80]  # use only first 80 basis
 
-    exBase = expPC*np.reshape(expEV, [-1, 79])
-    exBase = exBase/1e5  # unify the scale to decimeter
+    exBase = expPC * np.reshape(expEV, [-1, 79])
+    exBase = exBase / 1e5  # unify the scale to decimeter
     exBase = exBase[:, :64]  # use only first 64 basis
 
-    texBase = texPC*np.reshape(texEV, [-1, 199])
+    texBase = texPC * np.reshape(texEV, [-1, 199])
     texBase = texBase[:, :80]  # use only first 80 basis
 
     # our face model is cropped along face landmarks and contains only 35709 vertex.
@@ -78,7 +79,7 @@ def transferBFM09(bfm_folder='BFM'):
     exBase = exBase[index_exp, :, :]
     exBase = np.reshape(exBase, [-1, 64])
 
-    meanshape = np.reshape(shapeMU, [-1, 3])/1e5
+    meanshape = np.reshape(shapeMU, [-1, 3]) / 1e5
     meanshape = meanshape[index_shape, :]
     meanshape = np.reshape(meanshape, [1, -1])
 
@@ -97,13 +98,14 @@ def transferBFM09(bfm_folder='BFM'):
     tri_mask2 = other_info['tri_mask2']
 
     # save our face model
-    savemat(osp.join(bfm_folder, 'BFM_model_front.mat'), {'meanshape': meanshape, 'meantex': meantex, 'idBase': idBase, 'exBase': exBase, 'texBase': texBase,
-            'tri': tri, 'point_buf': point_buf, 'tri_mask2': tri_mask2, 'keypoints': keypoints, 'frontmask2_idx': frontmask2_idx, 'skinmask': skinmask})
+    savemat(osp.join(bfm_folder, 'BFM_model_front.mat'),
+            {'meanshape': meanshape, 'meantex': meantex, 'idBase': idBase, 'exBase': exBase, 'texBase': texBase,
+             'tri': tri, 'point_buf': point_buf, 'tri_mask2': tri_mask2, 'keypoints': keypoints,
+             'frontmask2_idx': frontmask2_idx, 'skinmask': skinmask})
 
 
 # load landmarks for standard face, which is used for image preprocessing
 def load_lm3d(bfm_folder):
-
     Lm3D = loadmat(osp.join(bfm_folder, 'similarity_Lm3D_all.mat'))
     Lm3D = Lm3D['lm']
 
@@ -114,4 +116,3 @@ def load_lm3d(bfm_folder):
     Lm3D = Lm3D[[1, 2, 0, 3, 4], :]
 
     return Lm3D
-
