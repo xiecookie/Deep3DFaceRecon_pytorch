@@ -13,6 +13,7 @@ from util.load_mats import load_lm3d
 import torch
 from data.flist_dataset import default_flist_reader
 from scipy.io import loadmat, savemat
+from textures.uv_creator import UVCreator
 
 
 def get_data_path(root='examples'):
@@ -36,6 +37,23 @@ def read_data(im_path, lm_path, lm3d_std, to_tensor=True):
         im = torch.tensor(np.array(im) / 255., dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
         lm = torch.tensor(lm).unsqueeze(0)
     return im, lm
+
+
+def extract_texture(model, face):
+    model.facemodel.to(model.device)
+    model.mesh_rasterizer.to(model.device)
+    fragment = model.renderer(model.mesh_rasterizer, model.pred_vertex, model.facemodel.face_buf)
+    visible_face = torch.unique(fragment.pix_to_face)[1:]  # exclude face id -1
+    visible_vert = face[visible_face]
+    visible_vert = torch.unique(visible_vert)
+    shift_vert = model.pred_vertex
+    vert_alpha = torch.zeros([shift_vert.shape[0], 1], device='cuda')
+    vert_alpha[visible_vert] = 1
+    nsh_shift_vert_alpha = torch.cat([shift_vert, vert_alpha], axis=-1)
+    uv_creator = UVCreator('230')
+    uv_size = 1024
+    uvmap = uv_creator.create_bfm_uv_torch(
+        nsh_shift_vert_alpha, model.input_img, uv_size)
 
 
 def main(rank, opt, name='examples'):
@@ -63,14 +81,28 @@ def main(rank, opt, name='examples'):
         }
         model.set_input(data)  # unpack data from data loader
         model.test()  # run inference
-        visuals = model.get_current_visuals()  # get image results
-        visualizer.display_current_results(visuals, 0, opt.epoch, dataset=name.split(os.path.sep)[-1],
-                                           save_results=True, count=i, name=img_name, add_image=False)
+        # visuals = model.get_current_visuals()  # get image results
+        # visualizer.display_current_results(visuals, 0, opt.epoch, dataset=name.split(os.path.sep)[-1],
+        #                                    save_results=True, count=i, name=img_name, add_image=False)
+
 
         model.save_mesh(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
                                      img_name + '.obj'))  # save reconstruction meshes
         model.save_coeff(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
                                       img_name + '.mat'))  # save predicted coefficients
+
+
+def center_crop(image, img_size):
+    # set img_size to None will not resize image
+    _, height, width = image.shape
+    if width > img_size:
+        w_s = (width - img_size) // 2
+        image = image[:, :, w_s:w_s + img_size]
+    if height > img_size:
+        h_s = (height - img_size) // 2
+        image = image[:, h_s:h_s + img_size, :]
+
+    return image
 
 
 if __name__ == '__main__':
