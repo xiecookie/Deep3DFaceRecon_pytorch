@@ -39,12 +39,12 @@ def read_data(im_path, lm_path, lm3d_std, to_tensor=True):
     return im, lm
 
 
-def extract_texture(model, face):
+def extract_texture(model):
     model.facemodel.to(model.device)
     model.mesh_rasterizer.to(model.device)
     fragment = model.renderer(model.mesh_rasterizer, model.pred_vertex, model.facemodel.face_buf)
     visible_face = torch.unique(fragment.pix_to_face)[1:]  # exclude face id -1
-    visible_vert = face[visible_face]
+    visible_vert = model.facemodel.face_buf[visible_face]
     visible_vert = torch.unique(visible_vert)
     shift_vert = model.pred_vertex
     vert_alpha = torch.zeros([shift_vert.shape[0], 1], device='cuda')
