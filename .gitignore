@@ -4,6 +4,9 @@
 *.so
 .idea
 insightface
+.ipynb_checkpoints
+checkpoint
+
 
 # Packages #
 ############
