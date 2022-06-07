@@ -55,7 +55,12 @@ class MeshRenderer(nn.Module):
         if vertex.shape[-1] == 3:
             vertex = torch.cat([vertex, torch.ones([*vertex.shape[:2], 1]).to(device)], dim=-1)
             vertex[..., 0] = -vertex[..., 0]
-
+        print("vertex : ")
+        print(np.min(vertex.cpu().numpy()[0, :, :2]))
+        print(np.max(vertex.cpu().numpy()[0, :, :2]))
+        print(vertex.shape)
+        print(vertex[0, :20])
+            
         tri = tri.type(torch.int32).contiguous()
 
         # rasterize
@@ -90,12 +95,38 @@ class MeshRenderer(nn.Module):
             vertex = torch.cat([vertex, torch.ones([*vertex.shape[:2], 1]).to(device)], dim=-1)
             vertex[..., 0] = -vertex[..., 0]
 
-        tri = tri.type(torch.int32).contiguous()
+        vertex = vertex.contiguous()[..., :3]
+        tri = tri.type(torch.int32).contiguous()[None]
 
+#         print("in rasterize")
+#         print(vertex.shape)
+#         print(tri.shape)
+        
         # batch_size = vertex.size()[0]
         # tri = tri.unsqueeze(0)
         # tri = tri.expand(batch_size, tri.size()[1], tri.size()[2])
 
-        mesh = Meshes(vertex.contiguous()[0, ..., :3], tri)
+        mesh = Meshes(vertex, tri)
         fragments = rasterizer(mesh)
         return fragments
+
+    def transform(self, rasterizer, vertex, tri, feat=None):
+        device = vertex.device
+        if vertex.shape[-1] == 3:
+            vertex = torch.cat([vertex, torch.ones([*vertex.shape[:2], 1]).to(device)], dim=-1)
+            vertex[..., 0] = -vertex[..., 0]
+
+        vertex = vertex.contiguous()[..., :3]
+        tri = tri.type(torch.int32).contiguous()[None]
+
+#         print("in rasterize")
+#         print(vertex.shape)
+#         print(tri.shape)
+        
+        # batch_size = vertex.size()[0]
+        # tri = tri.unsqueeze(0)
+        # tri = tri.expand(batch_size, tri.size()[1], tri.size()[2])
+
+        mesh = Meshes(vertex, tri)
+        mesh_new = rasterizer.transform(mesh)
+        return mesh_new

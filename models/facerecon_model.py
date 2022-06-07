@@ -13,6 +13,7 @@ from util.preprocess import estimate_norm_torch
 
 import trimesh
 from scipy.io import savemat
+import cv2
 
 # ------pytorch3d ----
 from pytorch3d.renderer import (
@@ -176,6 +177,10 @@ class FaceReconModel(BaseModel):
             self.mesh_rasterizer, self.pred_vertex,
             self.facemodel.face_buf, feat=self.pred_color
         )
+        image = self.pred_face.cpu().numpy()[0]
+        print(image.shape)
+        image_tmp = np.transpose(image, (1, 2, 0))[:, :, (2,1,0)]
+        cv2.imwrite('render.jpg', image_tmp * 255)
         self.pred_coeffs_dict = self.facemodel.split_coeff(output_coeff)
 
     def compute_losses(self):

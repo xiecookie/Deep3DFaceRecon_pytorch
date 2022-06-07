@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from textures import meshio
+import trimesh
 
 
 class UVCreator():
@@ -24,35 +25,17 @@ class UVCreator():
 
         self.load_face_mesh()
 
-        nsh_prefix = 'data/uv_param/{}/{}'.format(face_model, self.uv_size)
-        bfm_prefix = 'data/uv_param/bfm_{}/{}'.format(bfm_version, self.uv_size)
+        nsh_prefix = 'textures/data/uv_param/{}/{}'.format(face_model, self.uv_size)
+        bfm_prefix = 'textures/data/uv_param/bfm_{}/{}'.format(bfm_version, self.uv_size)
         for p in [nsh_prefix, bfm_prefix]:
             if not os.path.isdir(p):
                 os.makedirs(p)
 
-        self.nsh_vert_idxs, self.nsh_bary_weight = self.get_uv_idx(
-            nsh_prefix, self.nsh_uv_coord, self.nsh_face_tri)
-        self.nsh_bary_weight_np = self.nsh_bary_weight.cpu().numpy()
         self.bfm_vert_idxs, self.bfm_bary_weight = self.get_uv_idx(
             bfm_prefix, self.bfm_uv_coord, self.bfm_tri)
 
     def load_face_mesh(self):
-        nsh_mesh = meshio.Mesh('data/mesh/{}/nsh_std.obj'.format(self.face_model),
-                               group=True)
-
-        self.nsh_face_face_idx = nsh_mesh.groups[1][-1]
-        self.nsh_head_tri = nsh_mesh.triangles
-        nsh_face_face = self.nsh_head_tri[self.nsh_face_face_idx:]
-        nsh_face_vert_idx = functools.reduce(operator.iconcat, nsh_face_face, [])
-        nsh_face_vert_idx = list(set(nsh_face_vert_idx))
-        self.nsh_face_start_idx = min(nsh_face_vert_idx) - 1
-        self.nsh_face_tri = np.array(nsh_face_face) - (self.nsh_face_start_idx + 1)
-        self.num_face = self.nsh_face_tri.shape[0]
-
-        nsh_uv_coord = process_uv(np.array(nsh_mesh.texcoords), self.uv_size)
-        self.nsh_uv_coord = nsh_uv_coord[self.nsh_face_start_idx:]
-
-        bfm_mesh = meshio.Mesh('data/mesh/bfm09_{}.obj'.format(self.bfm_version))
+        bfm_mesh = meshio.Mesh('textures/data/mesh/bfm09_{}.obj'.format(self.bfm_version))
         self.bfm_tri = bfm_mesh.triangles
         self.bfm_uv_coord = process_uv(np.array(bfm_mesh.texcoords), self.uv_size)
 
@@ -93,17 +76,6 @@ class UVCreator():
                         bary_weight=None, param_dir=None, tpt_mesh=None):
         # input_image = torch.flip(input_image, (3,)).type(torch.float32)
         # input image shape: [bs,c, h, w]
-        if vert_idxs is None or bary_weight is None:
-            assert param_dir is not None, 'uv params are not exist!'
-            tri_buf_path = os.path.join(param_dir, 'tri_buffer.npy')
-            bary_wei_path = os.path.join(param_dir, 'barycentric_weight.npy')
-            tri_buff = np.fromfile(tri_buf_path, dtype=np.int32).reshape(
-                [self.uv_size, self.uv_size])
-            bary_weight = np.fromfile(bary_wei_path, dtype=np.float32).reshape(
-                [self.uv_size, self.uv_size, 3])
-            vert_idxs = tpt_mesh.triangles[tri_buff]
-            bary_weight = self.to_tensor(bary_weight)
-
         in_size = input_image.size()
         if in_size[2] != self.im_size:
             image = torch.zeros((in_size[0], in_size[1], self.im_size, self.im_size),
@@ -115,7 +87,6 @@ class UVCreator():
                                               mode='nearest')
         else:
             image = input_image
-
         pixel_uv_coord = shift_vert[vert_idxs]
         use_vis = pixel_uv_coord.shape[-1] > 3
         if use_vis:
@@ -129,17 +100,21 @@ class UVCreator():
 
         if self.bfm_version == 'face':
             proj_coord = pixel_uv_coord[..., :3]
-            proj_coord = (proj_coord[..., :2] +
-                          1e-8) / (self.facial_torch * proj_coord[..., 2:3] + 1e-8)
+            proj_coord = (proj_coord[..., :2]) # + 1e-8)# / (self.facial_torch * proj_coord[..., 2:3] + 1e-8) # proj_coord[..., :2] # 
             half_size = self.im_size // 2
             coords = torch.round(proj_coord * half_size + half_size).long()
         else:
             coords = torch.round(pixel_uv_coord[..., :2]).long()
 
         coords = torch.clamp(coords, 0, self.im_size - 1)
-        proj_uv = image[0, :, coords[:, 1], coords[:, 0]]
+        image_tmp = np.transpose(image[0].cpu().numpy(), (1, 2, 0))[:, :, (2,1,0)]
+        cv2.imwrite('123.jpg', image_tmp * 255)
+        proj_uv = image[0, :, self.im_size - coords[:, 1], coords[:, 0]]
         proj_uv = proj_uv.view([-1, self.uv_size, self.uv_size])
 
+        uv_tmp = np.transpose(proj_uv.cpu().numpy(), (1, 2, 0))[:, :, (2,1,0)]
+        cv2.imwrite('uv.jpg', uv_tmp * 255)
+        
         if use_vis:
             proj_uv = torch.cat(
                 [proj_uv, pixel_uv_visible.type(torch.float32)], axis=0)
@@ -148,7 +123,37 @@ class UVCreator():
         if uv_size != self.uv_size:
             proj_uv = F.interpolate(proj_uv, size=uv_size, mode='nearest')
         proj_uv = proj_uv.permute(0, 2, 3, 1)
-        return torch.flip(proj_uv[0], (0, 1))
+        return proj_uv[0]# torch.flip(proj_uv[0], (0, 1))
+    
+    def save_mesh(self, model, input_image):
+        in_size = input_image.size()
+        if in_size[2] != self.im_size:
+            image = torch.zeros((in_size[0], in_size[1], self.im_size, self.im_size),
+                                device=self.device)
+            image[:, :3] = F.interpolate(input_image[:, :3], size=self.im_size,
+                                         mode='bilinear', align_corners=False)
+            if in_size[1] > 3:
+                image[:, 3:4] = F.interpolate(input_image[:, 3:4], size=self.im_size,
+                                              mode='nearest')
+        else:
+            image = input_image
+            
+        image = image.cpu().numpy()[0]
+        print(image.shape)
+        coords = torch.round(model.pred_vertex[0, :, :2] * 512 + 512).long().cpu().numpy()
+        recon_shape = model.pred_vertex  # get reconstructed shape
+        recon_shape[..., -1] = 10 - recon_shape[..., -1]  # from camera space to world space
+        recon_shape = recon_shape.cpu().numpy()[0]
+        recon_color_tmp = model.pred_color.cpu().numpy()[0]
+        recon_color = np.zeros(recon_color_tmp.shape)
+        print(recon_color.shape)
+        for i in range(recon_color.shape[0]):
+            recon_color[i, :] = image[:, 1024 - coords[i, 1], coords[i, 0]]
+#             print(image[:, coords[i, 1], coords[i, 0]])
+        tri = model.facemodel.face_buf.cpu().numpy()
+        mesh = trimesh.Trimesh(vertices=recon_shape, faces=tri,
+                               vertex_colors=np.clip(255. * recon_color, 0, 255).astype(np.uint8))
+        mesh.export('test.obj')
 
     def create_nsh_uv_np(self, nsh_shift_vert, input_image, segments,
                          visible=False):

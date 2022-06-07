@@ -64,15 +64,15 @@ def main(rank, opt, name='examples'):
         }
         model.set_input(data)  # unpack data from data loader
         model.test()  # run inference
-        extract_texture(model)
-        # visuals = model.get_current_visuals()  # get image results
-        # visualizer.display_current_results(visuals, 0, opt.epoch, dataset=name.split(os.path.sep)[-1],
-        #                                    save_results=True, count=i, name=img_name, add_image=False)
-        #
-        # model.save_mesh(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
-        #                              img_name + '.obj'))  # save reconstruction meshes
-        # model.save_coeff(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
-        #                               img_name + '.mat'))  # save predicted coefficients
+        extract_texture(model, i) # extract textures
+        visuals = model.get_current_visuals()  # get image results
+        visualizer.display_current_results(visuals, 0, opt.epoch, dataset=name.split(os.path.sep)[-1],
+                                           save_results=True, count=i, name=img_name, add_image=False)
+        
+        model.save_mesh(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
+                                     img_name + '.obj'))  # save reconstruction meshes
+        model.save_coeff(os.path.join(visualizer.img_dir, name.split(os.path.sep)[-1], 'epoch_%s_%06d' % (opt.epoch, 0),
+                                      img_name + '.mat'))  # save predicted coefficients
 
 
 if __name__ == '__main__':
